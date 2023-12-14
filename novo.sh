@@ -27,41 +27,61 @@ instalarCdn() {
     for package in "${packages[@]}"; do
         if ! check_installed $package; then
             #echo "Instalando $package..."
-            whiptail --title "Instalación de CDN" --msgbox "Instalando $package..." 8 78
+            TERM=ansi whiptail --title "Instalación de CDN" --infobox "Instalando $package..." 8 78
+            sleep 2
             apt-get install -y $package
-            apt-get update
+            sleep 2
         else
             #echo "$package ya está instalado."
-            whiptail --title "Instalación de CDN" --msgbox "$package ya está instalado." 8 78
+            sleep 1
+            TERM=ansi whiptail --title "Instalación de CDN" --infobox "$package ya está instalado." 8 78
         fi
     done
 
     # Verifica se o módulo bonding já está carregado
+    sleep 1
+    apt-get update
     if lsmod | grep -q "bonding"; then
-        #echo "El módulo bonding ya está cargado."
-        whiptail --title "Instalación de CDN" --msgbox "El módulo bonding ya está cargado." 8 78
+        sleep 2
+        TERM=ansi whiptail --title "Instalación de CDN" --infobox "El módulo bonding ya está cargado." 8 78
     else
         # Carrega o módulo bonding
         modprobe bonding
-        #echo "Módulo bonding cargado."
-        whiptail --title "Instalación de CDN" --msgbox "Módulo bonding cargado." 8 78
+        sleep 2
+        TERM=ansi whiptail --title "Instalación de CDN" --infobox "Módulo bonding cargado." 8 78
     fi
 
     # Adiciona o módulo ao arquivo /etc/modules, se ainda não estiver presente
+    sleep 1
     if ! grep -q "bonding" /etc/modules; then
         echo "bonding" >> /etc/modules
-        #echo "Módulo bonding agregado a /etc/modules."
-        whiptail --title "Instalación de CDN" --msgbox "Módulo bonding agregado a /etc/modules." 8 78
+        TERM=ansi whiptail --title "Instalación de CDN" --infobox "Módulo bonding agregado a /etc/modules." 8 78
     else
-        echo "El módulo bonding ya está presente en el archivo /etc/modules."
-        whiptail --title "Instalación de CDN" --msgbox "El módulo bonding ya está presente en el archivo /etc/modules.." 8 78
+        TERM=ansi whiptail --title "Instalación de CDN" --infobox "El módulo bonding ya está presente en el archivo /etc/modules.." 8 78
     fi
+    if (whiptail --title "Instalación de CDN" --yesno "¿Configurar interface bonding?" 8 78); then
+        
+        BOND=$(whiptail --inputbox "introduzca el nombre de la bond" 8 78 --title "Instalación de CDN" 3>&1 1>&2 2>&3)
+        exitstatus=$?
+        if [ $exitstatus = 0 ]; then
+            echo "" >> /etc/network/interfaces
+            echo "auto $BOND" >> /etc/network/interfaces
+            echo "iface $BOND inet manual" >> /etc/network/interfaces
+            echo "  bond-slave none" >> /etc/network/interfaces
+            echo "  bond-mode 4" >> /etc/network/interfaces
+            echo "  bond-miimon 100" >> /etc/network/interfaces
+            echo "  bond-downdelay 200" >> /etc/network/interfaces
+            echo "  bond-lacprate 100" >> /etc/network/interfaces
+            echo "  bond-xmit-hash-policy layer3+4" >> /etc/network/interfaces
+            echo "" >> /etc/network/interfaces
+        else
+            exit
+        fi
 
-    # Verificação do driver bonding
-    if modinfo bonding &> /dev/null; then
-        echo "Instalação e verificação bem-sucedidas!"
+
+
     else
-        echo "Erro na instalação ou verificação do driver bonding."
+        echo "User selected No, exit status was $?."
     fi
 }
 
